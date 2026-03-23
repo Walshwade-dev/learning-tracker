@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  subject   String
+  date      String
+  duration  Int      @default(0)
+  completed Boolean  @default(false)
+  notes     Note[]
+  createdAt DateTime @default(now())
+}
+
+model Note {
+  id        Int      @id @default(autoincrement())
+  content   String
+  sessionId Int
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Roadmap {
+  id        Int     @id @default(autoincrement())
+  subject   String
+  milestone String
+  done      Boolean @default(false)
+}
