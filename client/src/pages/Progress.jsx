@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCode, faNetworkWired, faShield, faCalendarDay, faClock } from '@fortawesome/free-solid-svg-icons'
 
+import NoteModal from '../components/NoteModal'
+
 const SUBJECT_CONFIG = {
   fullstack: { label: 'Fullstack Dev', icon: faCode, color: 'blue', hex: '#3b82f6', target: 120 },
   networking: { label: 'Networking', icon: faNetworkWired, color: 'green', hex: '#22c55e', target: 90 },
@@ -47,6 +49,9 @@ export default function Progress() {
   const [sessions, setSessions] = useState([])
   const [initialLoad, setInitialLoad] = useState(true)
   const [expandedDate, setExpandedDate] = useState(null)
+
+  const [openNote, setOpenNote] = useState(null)
+  const [openNoteSubject, setOpenNoteSubject] = useState(null)
 
   useEffect(() => {
     const fetchAllSessions = async () => {
@@ -278,28 +283,24 @@ export default function Progress() {
                               </div>
 
                               {/* Notes */}
-                              {session.notes?.length > 0 ? (
-                                <ul className="space-y-1 ml-5">
-                                  {session.notes.map(note => (
-                                    <li
-                                      key={note.id}
-                                      className="flex items-start gap-2"
-                                    >
-                                      <span
-                                        className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0"
-                                        style={{ backgroundColor: cfg.hex }}
-                                      />
-                                      <p className="text-xs text-gray-600">
-                                        {note.content}
-                                      </p>
-                                    </li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p className="text-xs text-gray-300 ml-5">
-                                  No notes for this session.
-                                </p>
-                              )}
+                              {session.notes.map(note => (
+                                <li
+                                  key={note.id}
+                                  className="flex items-start gap-2 cursor-pointer group"
+                                  onClick={() => {
+                                    setOpenNote(note)
+                                    setOpenNoteSubject(session.subject)
+                                  }}
+                                >
+                                  <span
+                                    className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0"
+                                    style={{ backgroundColor: cfg.hex }}
+                                  />
+                                  <p className="text-xs text-gray-600 group-hover:text-gray-900 transition-colors line-clamp-1">
+                                    {note.content}
+                                  </p>
+                                </li>
+                              ))}
 
                             </div>
                           )
@@ -315,6 +316,11 @@ export default function Progress() {
        )}
       </div>
 
+      <NoteModal
+        note={openNote}
+        subjectConfig={openNote ? SUBJECT_CONFIG[openNoteSubject] : null}
+        onClose={() => { setOpenNote(null); setOpenNoteSubject(null) }}
+      />
     </div>
   )
 }

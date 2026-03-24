@@ -3,6 +3,8 @@ import { useTimer } from "../hooks/useTimer";
 
 import CircularProgress from './CircularProgress'
 
+import NoteModal from './NoteModal'
+
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCode, faNetworkWired, faShield } from '@fortawesome/free-solid-svg-icons'
 
@@ -71,6 +73,8 @@ export default function SessionCard({ subject, date, existingSession, onSessionU
   const [noteInput, setNoteInput] = useState('')
   const [notes, setNotes] = useState(existingSession?.notes || [])
   const [loading, setLoading] = useState(false)
+
+  const [openNote, setOpenNote] = useState(null)
 
   const progressPercent = Math.min(
     ((session?.duration || 0) / config.target) * 100,
@@ -269,7 +273,13 @@ export default function SessionCard({ subject, date, existingSession, onSessionU
                     key={note.id}
                     className="flex items-start justify-between gap-2 bg-white/10 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-2"
                   >
-                    <p className="text-xs text-white/80 flex-1">{note.content}</p>
+                    {/* Clickable note preview */}
+                    <p
+                      onClick={() => setOpenNote(note)}
+                      className="text-xs text-white/80 flex-1 cursor-pointer hover:text-white transition-colors line-clamp-2"
+                    >
+                      {note.content}
+                    </p>
                     <button
                       onClick={() => handleDeleteNote(note.id)}
                       className="text-white/30 hover:text-red-300 text-xs transition-colors shrink-0"
@@ -284,6 +294,13 @@ export default function SessionCard({ subject, date, existingSession, onSessionU
         )}
 
       </div>
+
+      {/* Note modal */}
+      <NoteModal
+        note={openNote}
+        subjectConfig={openNote ? { ...config, hex: colors.hex } : null}
+        onClose={() => setOpenNote(null)}
+      />
     </div>
 )
 }
