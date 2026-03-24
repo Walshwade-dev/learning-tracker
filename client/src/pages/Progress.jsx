@@ -40,15 +40,17 @@ function formatShortDate(dateStr) {
   })
 }
 
+const { start, end } = getWeekRange()
+const dates = getDatesInRange(start, end)
+
 export default function Progress() {
   const [sessions, setSessions] = useState([])
-  const [loading, setLoading] = useState(true)
-  const { start, end } = getWeekRange()
-  const dates = getDatesInRange(start, end)
+  const [initialLoad, setInitialLoad] = useState(true)
+  const [expandedDate, setExpandedDate] = useState(null)
 
   useEffect(() => {
     const fetchAllSessions = async () => {
-      setLoading(true)
+      setInitialLoad(true)
       try {
         const requests = dates.map(date =>
           fetch(`/api/sessions?date=${date}`).then(r => r.json())
@@ -58,11 +60,11 @@ export default function Progress() {
       } catch (err) {
         console.error('Failed to fetch sessions:', err)
       } finally {
-        setLoading(false)
+        setInitialLoad(false)
       }
     }
     fetchAllSessions()
-  }, [dates])
+  }, [])
 
   const totalMinutesForSubject = (subject) =>
     sessions.filter(s => s.subject === subject).reduce((acc, s) => acc + s.duration, 0)
@@ -167,54 +169,150 @@ export default function Progress() {
         <h2 className="text-sm font-semibold text-gray-600 mb-4 uppercase tracking-wide">
           Daily Breakdown
         </h2>
-        {loading ? (
+        {initialLoad ? (
           <p className="text-sm text-gray-400 text-center py-4">Loading...</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {dates.map(date => {
               const daySessions = sessions.filter(s => s.date === date)
               const dayMinutes = daySessions.reduce((acc, s) => acc + s.duration, 0)
               const isToday = date === new Date().toISOString().split('T')[0]
+              const isExpanded = expandedDate === date
+              const hasNotes = daySessions.some(s => s.notes?.length > 0)
 
               return (
-                <div
-                  key={date}
-                  className={`flex items-center justify-between py-2 px-3 rounded-lg ${
-                    isToday ? 'bg-blue-50 border border-blue-100' : 'bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <p className={`text-sm font-medium ${isToday ? 'text-blue-600' : 'text-gray-600'}`}>
-                      {formatShortDate(date)}
-                      {isToday && <span className="ml-2 text-xs bg-blue-100 text-blue-500 px-1.5 py-0.5 rounded-full">Today</span>}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-400">
-                      {Math.floor(dayMinutes / 60)}h {dayMinutes % 60}m
-                    </span>
-                    <div className="flex gap-1">
-                      {['fullstack', 'networking', 'cybersecurity'].map(subject => {
-                        const s = daySessions.find(s => s.subject === subject)
-                        return (
-                          <div
-                            key={subject}
-                            className="w-2.5 h-2.5 rounded-full"
-                            style={{
-                              backgroundColor: s?.completed
-                                ? SUBJECT_CONFIG[subject].hex
-                                : '#e5e7eb'
-                            }}
-                          />
-                        )
-                      })}
+                <div key={date} className="rounded-lg overflow-hidden border border-gray-100">
+
+                  {/* Day row — clickable */}
+                  <div
+                    onClick={() => setExpandedDate(isExpanded ? null : date)}
+                    className={`flex items-center justify-between py-2 px-3 cursor-pointer transition-colors ${
+                      isToday
+                        ? 'bg-blue-50 hover:bg-blue-100'
+                        : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <p className={`text-sm font-medium ${isToday ? 'text-blue-600' : 'text-gray-600'}`}>
+                        {formatShortDate(date)}
+                        {isToday && (
+                          <span className="ml-2 text-xs bg-blue-100 text-blue-500 px-1.5 py-0.5 rounded-full">
+                            Today
+                          </span>
+                        )}
+                      </p>
+                      {hasNotes && (
+                        <span className="text-xs text-gray-400">📝</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-gray-400">
+                        {Math.floor(dayMinutes / 60)}h {dayMinutes % 60}m
+                      </span>
+                      <div className="flex gap-1">
+                        {['fullstack', 'networking', 'cybersecurity'].map(subject => {
+                          const s = daySessions.find(s => s.subject === subject)
+                          return (
+                            <div
+                              key={subject}
+                              className="w-2.5 h-2.5 rounded-full"
+                              style={{
+                                backgroundColor: s?.completed
+                                  ? SUBJECT_CONFIG[subject].hex
+                                  : '#e5e7eb'
+                              }}
+                            />
+                          )
+                        })}
+                      </div>
+                      <span className={`text-xs transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                        ▾
+                      </span>
                     </div>
                   </div>
+
+                  {/* Expanded notes panel */}
+                  {isExpanded && (
+                    <div className="px-3 py-3 bg-white space-y-4 border-t border-gray-100">
+                      {daySessions.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-2">
+                          No sessions recorded for this day.
+                        </p>
+                      ) : (
+                        daySessions.map(session => {
+                          const cfg = SUBJECT_CONFIG[session.subject]
+                          if (!cfg) return null
+
+                          return (
+                            <div key={session.id}>
+
+                              {/* Session header */}
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <FontAwesomeIcon
+                                    icon={cfg.icon}
+                                    className="text-xs"
+                                    style={{ color: cfg.hex }}
+                                  />
+                                  <span
+                                    className="text-xs font-semibold"
+                                    style={{ color: cfg.hex }}
+                                  >
+                                    {cfg.label}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-400">
+                                    {session.duration} min
+                                  </span>
+                                  {session.completed && (
+                                    <span
+                                      className="text-xs px-1.5 py-0.5 rounded-full text-white"
+                                      style={{ backgroundColor: cfg.hex }}
+                                    >
+                                      ✓ Done
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Notes */}
+                              {session.notes?.length > 0 ? (
+                                <ul className="space-y-1 ml-5">
+                                  {session.notes.map(note => (
+                                    <li
+                                      key={note.id}
+                                      className="flex items-start gap-2"
+                                    >
+                                      <span
+                                        className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0"
+                                        style={{ backgroundColor: cfg.hex }}
+                                      />
+                                      <p className="text-xs text-gray-600">
+                                        {note.content}
+                                      </p>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="text-xs text-gray-300 ml-5">
+                                  No notes for this session.
+                                </p>
+                              )}
+
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+                  )}
+
                 </div>
               )
             })}
           </div>
-        )}
+       )}
       </div>
 
     </div>
